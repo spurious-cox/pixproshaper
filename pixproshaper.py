@@ -4,9 +4,9 @@ A text layer converts directly. An image layer cannot: nothing in
 Pixelmator turns pixels into a shape, scripted or not, because that would
 be auto-tracing. What it can do is make a SELECTION from the layer's own
 content and convert that, which is the same thing by another road — so a
-pixel layer is traced by picking out its subject, or a colour, or
-everything that is not a colour, and the resulting shape is grouped with
-the original, which is hidden and locked as the source it now is.
+pixel layer is traced from its own outline, or from a colour, and the
+resulting shape is grouped with the original, which is hidden and locked
+as the source it now is.
 
 Everything else — shapes, groups, adjustments, effects, video — is
 reported and left alone.
@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.2.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -26,7 +26,7 @@ import objc
 from AppKit import (NSApp, NSApplication, NSBackingStoreBuffered, NSButton,
                     NSCenterTextAlignment, NSColor, NSColorWell, NSFont,
                     NSMakeRect, NSMakeSize, NSObject, NSRightTextAlignment,
-                    NSScrollView, NSSegmentedControl, NSSlider, NSSwitchButton,
+                    NSScrollView, NSSegmentedControl, NSSlider,
                     NSTextField, NSTextView, NSView, NSViewHeightSizable,
                     NSViewWidthSizable, NSWindow, NSWindowStyleMaskClosable,
                     NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable,
@@ -37,8 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shaperbridge as bridge
 
 WIN_W, WIN_H = 700, 540
-METHODS = (("Outline", "outline"), ("Subject", "subject"),
-           ("Colour", "colour"))
+METHODS = (("Outline", "outline"), ("Colour", "colour"))
 SETTINGS_KEY = "PixProShaperSettings"
 LOG_PATH = os.path.expanduser("~/Library/Logs/PixProShaper.log")
 
@@ -52,29 +51,30 @@ INFO_BODY = (
     "into a shape, scripted or by hand, because that would be auto-tracing "
     "and it has none. What it can do is make a SELECTION from the layer and "
     "convert THAT into a shape. So the whole question is how the selection "
-    "is chosen, and that is what the three methods are.\n\n"
+    "is chosen, and that is what the two methods are.\n\n"
 
     "OUTLINE  — start here\n"
     "The layer's own outline: its alpha, exactly as drawn, holes and all. "
     "Nothing is guessed at.\n"
     "    Best on: artwork on transparency, which is most artwork.\n"
+    "    Works on black artwork, where Colour cannot.\n"
     "    Nothing to set — the colour well and tolerance are ignored.\n\n"
-
-    "SUBJECT\n"
-    "Pixelmator picks out the main form by itself, the same way Select "
-    "Subject does in its own menus. Smart refine tidies the edge.\n"
-    "    Best on: a photograph, or one solid form on a filled ground.\n"
-    "    Watch for: it fills interior HOLES. A letter O comes back solid.\n\n"
 
     "COLOUR\n"
     "Selects everything matching the colour well, within the tolerance.\n"
     "    Best on: flat colour on a filled, opaque ground.\n"
-    "    Tolerance: 1 is an exact match, 100 takes in almost anything.\n"
-    "    Watch for BLACK. A transparent pixel is red 0, green 0, blue 0 — "
-    "the same as black — and colour matching ignores transparency. So "
-    "asking for black on artwork that sits on transparency selects the "
-    "WHOLE CANVAS, and the shape comes back as a big black box. Measured, "
-    "at every tolerance from 1 to 30. Use Outline instead.\n\n"
+    "    Tolerance: 1 is an exact match, 100 takes in almost anything. It "
+    "starts at 50. Exact matches are rarer than they sound — a colour "
+    "picked off the artwork can still miss it at 1 and catch it at 50, "
+    "because antialiasing means almost no two pixels are identical.\n"
+    "    Nothing matched means the tolerance is too low, not that the "
+    "colour is wrong.\n"
+    "    BLACK is checked for first. A transparent pixel is red 0, green "
+    "0, blue 0 — the same as black — and colour matching ignores "
+    "transparency, so asking for black selects the WHOLE CANVAS and the "
+    "shape comes back as a big black box. Each layer is tested before it "
+    "is traced, and one that holds nothing but black is refused with a "
+    "note saying so. Use Outline for those.\n\n"
 
     "A whole-canvas selection is refused rather than traced, because it is "
     "almost always that mistake. An empty one is refused too. Either way "
@@ -223,24 +223,17 @@ class Controller(NSObject):
         root.addSubview_(label("Pixel layers are traced by",
                                NSMakeRect(14, 214, 190, 18), 12, "bold"))
         self.method = NSSegmentedControl.alloc().initWithFrame_(
-            NSMakeRect(210, 210, 240, 26))
+            NSMakeRect(210, 210, 160, 26))
         self.method.setSegmentCount_(len(METHODS))
         for i, (name, _v) in enumerate(METHODS):
             self.method.setLabel_forSegment_(name, i)
             self.method.setWidth_forSegment_(80, i)
-        self.method.setSelectedSegment_(int(saved.get("method") or 0))
+        # Subject was dropped in 2.2.0, so a saved 2 no longer exists.
+        self.method.setSelectedSegment_(
+            min(int(saved.get("method") or 0), len(METHODS) - 1))
         self.method.setTarget_(self)
         self.method.setAction_("methodChanged:")
         root.addSubview_(self.method)
-
-        self.refine = FirstMouseButton.alloc().initWithFrame_(
-            NSMakeRect(492, 212, 130, 20))
-        self.refine.setButtonType_(NSSwitchButton)
-        self.refine.setTitle_("Smart refine")
-        self.refine.setState_(0 if saved.get("refine") == "0" else 1)
-        self.refine.setToolTip_(
-            "Let Pixelmator tidy the subject's edge after detecting it.")
-        root.addSubview_(self.refine)
 
         root.addSubview_(label("Colour", NSMakeRect(14, 250, 60, 18)))
         self.well = NSColorWell.alloc().initWithFrame_(
@@ -256,7 +249,7 @@ class Controller(NSObject):
             NSMakeRect(212, 246, 200, 22))
         self.tolerance.setMinValue_(1)
         self.tolerance.setMaxValue_(100)
-        self.tolerance.setDoubleValue_(float(saved.get("tolerance") or 30))
+        self.tolerance.setDoubleValue_(float(saved.get("tolerance") or 50))
         self.tolerance.setTarget_(self)
         self.tolerance.setAction_("toleranceChanged:")
         root.addSubview_(self.tolerance)
@@ -346,7 +339,6 @@ class Controller(NSObject):
     def save_settings(self):
         NSUserDefaults.standardUserDefaults().setObject_forKey_({
             "method": str(self.method.selectedSegment()),
-            "refine": "1" if self.refine.state() else "0",
             "tolerance": str(int(self.tolerance.doubleValue())),
         }, SETTINGS_KEY)
 
@@ -354,7 +346,6 @@ class Controller(NSObject):
     def methodChanged_(self, sender):
         method = self.chosen_method()
         by_colour = method == "colour"
-        self.refine.setEnabled_(method == "subject")
         self.well.setEnabled_(by_colour)
         self.tolerance.setEnabled_(by_colour)
         self.save_settings()
@@ -417,7 +408,6 @@ class Controller(NSObject):
         method = self.chosen_method()
         colour = self.colour_channels()
         tolerance = int(self.tolerance.doubleValue())
-        refine = bool(self.refine.state())
         done = 0
         try:
             for r in self.rows:
@@ -436,7 +426,7 @@ class Controller(NSObject):
                     else:
                         group, refusal = bridge.convert_pixels(
                             self.bundle, r["id"], name, method, colour,
-                            tolerance, refine)
+                            tolerance)
                         if refusal:
                             self.note_("%-30s not traced — %s"
                                        % (name, refusal))

@@ -101,13 +101,44 @@ def convert_text(bundle_id, layer_id):
     return run(_tell(bundle_id, body))
 
 
+def layer_is_black(bundle_id, layer_id):
+    """True when every pixel of the layer is black or transparent.
+
+    There is no way to read a pixel from AppleScript, so the layer is asked
+    a question it can answer: select everything within a hair of black,
+    then invert. What is left is everything that is NOT black. If that
+    comes back empty, nothing on the layer is anything but black.
+
+    The inversion is what makes it work. Selecting black directly always
+    returns the whole canvas, because a transparent pixel is red 0, green
+    0, blue 0 and colour matching ignores transparency — so black artwork
+    and empty space give the same answer. Inverting distinguishes them.
+
+    Verified against a layer known to hold no white: asking for white left
+    nothing, and inverting that gave the whole canvas back, so an empty
+    result really is empty rather than a failed command.
+    """
+    body = ('set d to front document\n'
+            'tell d\n'
+            '  deselect\n'
+            '  select color range (layer id "%s") color {0, 0, 0} range 2\n'
+            '  delay 0.25\n'
+            '  invert selection\n'
+            '  delay 0.25\n'
+            '  set b to selection bounds\n'
+            '  deselect\n'
+            '  if b is missing value then return "black"\n'
+            '  return "mixed"\n'
+            'end tell' % _escape(layer_id))
+    return run(_tell(bundle_id, body)) == "black"
+
+
 def convert_pixels(bundle_id, layer_id, name, method,
-                   colour=(65535, 65535, 65535), tolerance=30,
-                   smart_refine=True):
+                   colour=(65535, 65535, 65535), tolerance=50):
     """An image layer gains a shape traced from its own content.
 
-    method is "subject", "colour" or "background": select the subject, or
-    everything matching a colour, or everything that is NOT that colour.
+    method is "outline" — the layer's own alpha — or "colour", everything
+    matching the given colour within the tolerance.
 
     The pick is checked before anything is converted. A colour that matches
     NOTHING does not leave an empty selection — Pixelmator selects the
@@ -129,18 +160,18 @@ def convert_pixels(bundle_id, layer_id, name, method,
     if method == "outline":
         # The layer's own alpha, which is what "trace this artwork" means.
         # Colour matching cannot do it: a transparent pixel is RGB 0,0,0, so
-        # asking for black selects the whole canvas. Subject detection can
-        # find the bounds but fills interior holes. load selection follows
+        # asking for black selects the whole canvas. load selection follows
         # the outline itself, holes and all.
         pick = '  load selection src\n'
-    elif method == "subject":
-        pick = ('  select subject src with smart refine\n' if smart_refine
-                else '  select subject src without smart refine\n')
     else:
+        # Black artwork is hopeless by colour and there is no tolerance that
+        # rescues it, so it is caught here rather than after the whole
+        # canvas has been traced into a black rectangle.
+        if layer_is_black(bundle_id, layer_id):
+            return (None, "the artwork is black — colour matching cannot "
+                    "tell black from transparency; use Outline")
         pick = ('  select color range src color {%d, %d, %d} range %d\n'
                 % (colour[0], colour[1], colour[2], int(tolerance)))
-        if method == "background":
-            pick += '  invert selection\n'
 
     probe = ('set d to front document\n'
              'tell d\n'
@@ -156,7 +187,7 @@ def convert_pixels(bundle_id, layer_id, name, method,
              'end tell' % (_escape(layer_id), pick))
     caught = run(_tell(bundle_id, probe))
     if caught == "none":
-        return None, "nothing matched"
+        return None, "nothing matched — raise the tolerance"
     try:
         x0, y0, x1, y1, dw, dh = [float(v) for v in caught.split(",")]
     except ValueError:
