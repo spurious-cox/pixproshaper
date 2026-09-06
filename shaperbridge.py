@@ -126,7 +126,14 @@ def convert_pixels(bundle_id, layer_id, name, method,
     shape was made, and says why when one was not.
     """
     before = _layer_count(bundle_id)
-    if method == "subject":
+    if method == "outline":
+        # The layer's own alpha, which is what "trace this artwork" means.
+        # Colour matching cannot do it: a transparent pixel is RGB 0,0,0, so
+        # asking for black selects the whole canvas. Subject detection can
+        # find the bounds but fills interior holes. load selection follows
+        # the outline itself, holes and all.
+        pick = '  load selection src\n'
+    elif method == "subject":
         pick = ('  select subject src with smart refine\n' if smart_refine
                 else '  select subject src without smart refine\n')
     else:

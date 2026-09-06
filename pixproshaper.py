@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "2.0.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -37,8 +37,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shaperbridge as bridge
 
 WIN_W, WIN_H = 700, 540
-METHODS = (("Subject", "subject"), ("Colour", "colour"),
-           ("Not colour", "background"))
+METHODS = (("Outline", "outline"), ("Subject", "subject"),
+           ("Colour", "colour"))
 SETTINGS_KEY = "PixProShaperSettings"
 LOG_PATH = os.path.expanduser("~/Library/Logs/PixProShaper.log")
 
@@ -51,43 +51,34 @@ INFO_BODY = (
     "PIXEL LAYERS cannot be converted. Nothing in Pixelmator turns pixels "
     "into a shape, scripted or by hand, because that would be auto-tracing "
     "and it has none. What it can do is make a SELECTION from the layer and "
-    "convert THAT into a shape, which reaches the same place by another "
-    "road. So the whole question is how to choose the selection, and that "
-    "is what the three methods are.\n\n"
+    "convert THAT into a shape. So the whole question is how the selection "
+    "is chosen, and that is what the three methods are.\n\n"
+
+    "OUTLINE  — start here\n"
+    "The layer's own outline: its alpha, exactly as drawn, holes and all. "
+    "Nothing is guessed at.\n"
+    "    Best on: artwork on transparency, which is most artwork.\n"
+    "    Nothing to set — the colour well and tolerance are ignored.\n\n"
 
     "SUBJECT\n"
-    "Pixelmator picks out the main subject of the layer by itself, the same "
-    "way Select Subject does in its own menus. Smart refine then tidies the "
-    "edge.\n"
-    "    Best on: one clear form against a plain ground.\n"
-    "    Poor on: several forms of equal weight, fine texture, or anything "
-    "with no obvious single subject. It will find something, and it may be "
-    "nonsense.\n"
-    "    Ignores the colour well and tolerance entirely.\n\n"
+    "Pixelmator picks out the main form by itself, the same way Select "
+    "Subject does in its own menus. Smart refine tidies the edge.\n"
+    "    Best on: a photograph, or one solid form on a filled ground.\n"
+    "    Watch for: it fills interior HOLES. A letter O comes back solid.\n\n"
 
     "COLOUR\n"
-    "Selects everything MATCHING the colour well, within the tolerance, "
-    "and traces that.\n"
-    "    Best on: flat colour. Set the well to the ink and you get the "
-    "ink.\n"
-    "    Tolerance is how far from that colour still counts: 1 is an exact "
-    "match, 100 takes in almost anything. Start near 30.\n\n"
+    "Selects everything matching the colour well, within the tolerance.\n"
+    "    Best on: flat colour on a filled, opaque ground.\n"
+    "    Tolerance: 1 is an exact match, 100 takes in almost anything.\n"
+    "    Watch for BLACK. A transparent pixel is red 0, green 0, blue 0 — "
+    "the same as black — and colour matching ignores transparency. So "
+    "asking for black on artwork that sits on transparency selects the "
+    "WHOLE CANVAS, and the shape comes back as a big black box. Measured, "
+    "at every tolerance from 1 to 30. Use Outline instead.\n\n"
 
-    "NOT COLOUR\n"
-    "The same selection, inverted: everything that does NOT match. Sample "
-    "the background and you are left with the content.\n"
-    "    Best on: a form on a flat, even ground where Subject detection "
-    "has nothing to grip.\n"
-    "    Watch for: if the colour matches nothing, inverting selects the "
-    "WHOLE layer and the shape is a rectangle. If it matches everything, "
-    "inverting selects nothing and you are told nothing was traced.\n\n"
-
-    "WHICH TO REACH FOR\n"
-    "One clear form: Subject. You want a particular colour: Colour. You "
-    "want everything except the ground: Not colour. When one gives a poor "
-    "edge the other two cost nothing to try — undo and convert again.\n\n"
-    "The results are written to ~/Library/Logs/PixProShaper.log as well as "
-    "shown here.\n\n"
+    "A whole-canvas selection is refused rather than traced, because it is "
+    "almost always that mistake. An empty one is refused too. Either way "
+    "you are told, instead of being handed a black rectangle.\n\n"
 
     "WHAT YOU GET\n"
     "The new shape and the original go into a group named for the original, "
@@ -98,16 +89,14 @@ INFO_BODY = (
     "and there is no route from a group, adjustment, effect or video layer "
     "to one. Hidden layers are skipped.\n\n"
 
-    "An empty selection converts to nothing and Pixelmator still calls it a "
-    "success, so the layers are counted before and after. If a trace found "
-    "nothing you are told, rather than left with a group holding one hidden "
-    "layer.\n\n"
-
     "Layers are addressed by their id, not their name. A document with "
     "sixteen layers called \u201cShape\u201d is perfectly normal, and "
     "working by name converts the same one over and over while the rest "
     "appear to have been ignored. The list shows the first characters of "
     "each id so you can tell them apart.\n\n"
+
+    "Results are written to ~/Library/Logs/PixProShaper.log as well as "
+    "shown here, and the box is cleared each time you press Convert.\n\n"
 
     "Only top-level layers are read. A layer inside a group is not seen.")
 
@@ -229,11 +218,11 @@ class Controller(NSObject):
         root.addSubview_(label("Pixel layers are traced by",
                                NSMakeRect(14, 214, 190, 18), 12, "bold"))
         self.method = NSSegmentedControl.alloc().initWithFrame_(
-            NSMakeRect(210, 210, 270, 26))
+            NSMakeRect(210, 210, 240, 26))
         self.method.setSegmentCount_(len(METHODS))
         for i, (name, _v) in enumerate(METHODS):
             self.method.setLabel_forSegment_(name, i)
-            self.method.setWidth_forSegment_(90, i)
+            self.method.setWidth_forSegment_(80, i)
         self.method.setSelectedSegment_(int(saved.get("method") or 0))
         self.method.setTarget_(self)
         self.method.setAction_("methodChanged:")
@@ -358,8 +347,9 @@ class Controller(NSObject):
 
     # -------------------------------------------------------------- actions
     def methodChanged_(self, sender):
-        by_colour = self.chosen_method() in ("colour", "background")
-        self.refine.setEnabled_(not by_colour)
+        method = self.chosen_method()
+        by_colour = method == "colour"
+        self.refine.setEnabled_(method == "subject")
         self.well.setEnabled_(by_colour)
         self.tolerance.setEnabled_(by_colour)
         self.save_settings()
