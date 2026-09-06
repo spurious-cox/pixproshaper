@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -429,19 +429,16 @@ class Controller(NSObject):
                         self.note_("%-30s → shape “%s”" % (name, became))
                         done += 1
                     else:
-                        shape, refusal, before, after = bridge.convert_pixels(
+                        group, refusal = bridge.convert_pixels(
                             self.bundle, r["id"], name, method, colour,
                             tolerance, refine)
                         if refusal:
-                            self.note_("%-30s NOT TRACED — %s"
+                            self.note_("%-30s not traced — %s"
                                        % (name, refusal))
-                        elif after <= before:
-                            self.note_("%-30s NOT TRACED — no layer appeared"
-                                       % name)
                         else:
-                            self.note_("%-30s → shape “%s”, grouped, "
+                            self.note_("%-30s traced into group “%s” — "
                                        "original hidden and locked"
-                                       % (name, shape))
+                                       % (name, group))
                             done += 1
                 except bridge.PixmatorError as exc:
                     self.note_("%-30s FAILED: %s" % (name, exc))

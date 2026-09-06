@@ -84,11 +84,6 @@ def selected_layers(bundle_id):
     return rows
 
 
-def _layer_count(bundle_id):
-    return int(run(_tell(bundle_id,
-                         'return (count of layers of front document) as text')) or 0)
-
-
 def convert_text(bundle_id, layer_id):
     """A text layer becomes a shape.
 
@@ -122,10 +117,15 @@ def convert_pixels(bundle_id, layer_id, name, method,
     and every layer comes out as a big black box. So the bounds are read
     back and a whole-canvas answer is refused rather than traced.
 
-    Returns (shape_name, refusal, before, after). `refusal` is None when a
-    shape was made, and says why when one was not.
+    Returns (group_name, refusal). `refusal` is None when a shape was made,
+    and says why when one was not.
+
+    The check is what the group actually holds, not a layer count. Counting
+    top-level layers cannot work here: the new shape adds one, then the
+    shape and the original both move into a new group, which removes two
+    and adds one. The total is unchanged, so every success read as
+    "no layer appeared".
     """
-    before = _layer_count(bundle_id)
     if method == "outline":
         # The layer's own alpha, which is what "trace this artwork" means.
         # Colour matching cannot do it: a transparent pixel is RGB 0,0,0, so
@@ -156,14 +156,14 @@ def convert_pixels(bundle_id, layer_id, name, method,
              'end tell' % (_escape(layer_id), pick))
     caught = run(_tell(bundle_id, probe))
     if caught == "none":
-        return None, "nothing matched", before, before
+        return None, "nothing matched"
     try:
         x0, y0, x1, y1, dw, dh = [float(v) for v in caught.split(",")]
     except ValueError:
-        return None, "the selection could not be read", before, before
+        return None, "the selection could not be read"
     if x0 <= 0 and y0 <= 0 and x1 >= dw and y1 >= dh:
-        return (None, "matched nothing — Pixelmator answers that by "
-                "selecting the whole canvas", before, before)
+        return (None, "the selection covered the whole canvas — with "
+                "Colour that means black on transparency; use Outline")
 
     body = ('set d to front document\n'
             'tell d\n'
@@ -181,10 +181,12 @@ def convert_pixels(bundle_id, layer_id, name, method,
             '  set visible of inner to false\n'
             '  set locked of inner to true\n'
             '  deselect\n'
-            'end tell\n'
-            'return shapeName'
+            '  return (name of g) & tab & ((count of layers of g) as text)\n'
+            'end tell'
             % (_escape(layer_id), _escape("%s (shaped)" % name),
                _escape(layer_id)))
-    shape_name = run(_tell(bundle_id, body))
-    after = _layer_count(bundle_id)
-    return shape_name, None, before, after
+    answer = run(_tell(bundle_id, body))
+    parts = answer.split("\t")
+    if len(parts) != 2 or parts[1] != "2":
+        return None, "the group did not come out right (%s)" % answer
+    return parts[0], None
