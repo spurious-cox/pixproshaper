@@ -14,11 +14,13 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.3.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
+import datetime
 import os
 import sys
+import traceback
 
 import objc
 from AppKit import (NSApp, NSApplication, NSBackingStoreBuffered, NSButton,
@@ -38,6 +40,7 @@ WIN_W, WIN_H = 700, 540
 METHODS = (("Subject", "subject"), ("Colour", "colour"),
            ("Not colour", "background"))
 SETTINGS_KEY = "PixProShaperSettings"
+LOG_PATH = os.path.expanduser("~/Library/Logs/PixProShaper.log")
 
 INFO_BODY = (
     "Select layers in Pixelmator Pro, press Reread selection, then Convert.\n\n"
@@ -53,38 +56,38 @@ INFO_BODY = (
     "is what the three methods are.\n\n"
 
     "SUBJECT\n"
-    "Pixelmator finds the main subject of the layer by itself — the same "
-    "machine learning behind Select Subject in its own menus. Smart refine "
-    "then tidies the edge, which matters on hair and fur.\n"
-    "    Best on: a thing photographed against a background. A person, a "
-    "product, an animal.\n"
-    "    Poor on: flat graphics, textures, patterns, anything with no "
-    "obvious single subject. It will find something, and it may be "
+    "Pixelmator picks out the main subject of the layer by itself, the same "
+    "way Select Subject does in its own menus. Smart refine then tidies the "
+    "edge.\n"
+    "    Best on: one clear form against a plain ground.\n"
+    "    Poor on: several forms of equal weight, fine texture, or anything "
+    "with no obvious single subject. It will find something, and it may be "
     "nonsense.\n"
     "    Ignores the colour well and tolerance entirely.\n\n"
 
     "COLOUR\n"
     "Selects everything MATCHING the colour well, within the tolerance, "
     "and traces that.\n"
-    "    Best on: artwork with flat colour. Set the well to the ink and you "
-    "get the ink.\n"
+    "    Best on: flat colour. Set the well to the ink and you get the "
+    "ink.\n"
     "    Tolerance is how far from that colour still counts: 1 is an exact "
     "match, 100 takes in almost anything. Start near 30.\n\n"
 
     "NOT COLOUR\n"
     "The same selection, inverted: everything that does NOT match. Sample "
     "the background and you are left with the content.\n"
-    "    Best on: a subject on a flat, even background where Subject "
-    "detection has nothing to grip.\n"
+    "    Best on: a form on a flat, even ground where Subject detection "
+    "has nothing to grip.\n"
     "    Watch for: if the colour matches nothing, inverting selects the "
     "WHOLE layer and the shape is a rectangle. If it matches everything, "
     "inverting selects nothing and you are told nothing was traced.\n\n"
 
     "WHICH TO REACH FOR\n"
-    "Photograph of a thing: Subject. Flat artwork where you want one "
-    "colour: Colour. Flat artwork where you want everything except the "
-    "background: Not colour. When one gives a poor edge, the other two cost "
-    "nothing to try — undo and convert again.\n\n"
+    "One clear form: Subject. You want a particular colour: Colour. You "
+    "want everything except the ground: Not colour. When one gives a poor "
+    "edge the other two cost nothing to try — undo and convert again.\n\n"
+    "The results are written to ~/Library/Logs/PixProShaper.log as well as "
+    "shown here.\n\n"
 
     "WHAT YOU GET\n"
     "The new shape and the original go into a group named for the original, "
@@ -318,8 +321,17 @@ class Controller(NSObject):
         self.status.setStringValue_(text)
 
     def note_(self, line):
+        """On screen and on disk. A results box is gone the moment the app
+        quits, and the one thing worth having when something converted two
+        layers out of four is what it said about the other two."""
         self.log.setString_("%s%s\n" % (self.log.string() or "", line))
         self.log.scrollRangeToVisible_((len(self.log.string()), 0))
+        try:
+            with open(LOG_PATH, "a", encoding="utf-8") as fh:
+                fh.write("%s  %s\n"
+                         % (datetime.datetime.now().strftime("%H:%M:%S"), line))
+        except OSError:
+            pass
 
     def chosen_method(self):
         return METHODS[self.method.selectedSegment()][1]
@@ -398,6 +410,11 @@ class Controller(NSObject):
             return
         self.busy = True
         self.convert_button.setEnabled_(False)
+        # Start clean: the last run's results are not this run's.
+        self.log.setString_("")
+        self.note_("---- convert: %d layer%s, method %s ----"
+                   % (len(self.rows), "" if len(self.rows) == 1 else "s",
+                      self.chosen_method()))
         self.say_("Converting…")
         self.performSelector_withObject_afterDelay_("_work:", None, 0.05)
 
@@ -422,14 +439,15 @@ class Controller(NSObject):
                         self.note_("%-30s → shape “%s”" % (name, became))
                         done += 1
                     else:
-                        shape, before, after = bridge.convert_pixels(
+                        shape, refusal, before, after = bridge.convert_pixels(
                             self.bundle, r["id"], name, method, colour,
                             tolerance, refine)
-                        if after <= before - 1 and not shape:
-                            # Nothing was made: an empty selection converts
-                            # to nothing and still reports success.
-                            self.note_("%-30s NOTHING TRACED — the %s "
-                                       "selection was empty" % (name, method))
+                        if refusal:
+                            self.note_("%-30s NOT TRACED — %s"
+                                       % (name, refusal))
+                        elif after <= before:
+                            self.note_("%-30s NOT TRACED — no layer appeared"
+                                       % name)
                         else:
                             self.note_("%-30s → shape “%s”, grouped, "
                                        "original hidden and locked"
@@ -437,6 +455,16 @@ class Controller(NSObject):
                             done += 1
                 except bridge.PixmatorError as exc:
                     self.note_("%-30s FAILED: %s" % (name, exc))
+                except Exception as exc:
+                    # Anything at all. Catching only PixmatorError meant a
+                    # Python slip on the third layer aborted the whole run
+                    # without a word: two conversions logged, the other two
+                    # never mentioned, and the window looking perfectly
+                    # normal afterwards.
+                    self.note_("%-30s FAILED (%s): %s"
+                               % (name, exc.__class__.__name__, exc))
+                    for line in traceback.format_exc().strip().split("\n")[-3:]:
+                        self.note_("        %s" % line.strip())
             self.say_("Converted %d layer%s." % (done, "" if done == 1 else "s"))
             self.note_("")
         finally:

@@ -107,35 +107,60 @@ def convert_text(bundle_id, layer_id):
 
 
 def convert_pixels(bundle_id, layer_id, name, method,
-                   colour=(65535, 65535, 65535),
-                   tolerance=30, smart_refine=True):
+                   colour=(65535, 65535, 65535), tolerance=30,
+                   smart_refine=True):
     """An image layer gains a shape traced from its own content.
 
     method is "subject", "colour" or "background": select the subject, or
     everything matching a colour, or everything that is NOT that colour.
 
-    The new shape and the original go into a group named for the original,
-    and the original is hidden and locked — it is the source, not something
-    to keep editing by accident.
+    The pick is checked before anything is converted. A colour that matches
+    NOTHING does not leave an empty selection — Pixelmator selects the
+    ENTIRE CANVAS. Measured: after asking for pure black on a layer holding
+    none, the selection bounds came back as the whole document. Converting
+    that produces a canvas-sized rectangle, which Pixelmator fills black,
+    and every layer comes out as a big black box. So the bounds are read
+    back and a whole-canvas answer is refused rather than traced.
 
-    An empty selection converts to NOTHING and still reports success, so
-    the layers are counted before and after. Silence would mean a group
-    holding only a hidden original, which looks like the layer vanished.
+    Returns (shape_name, refusal, before, after). `refusal` is None when a
+    shape was made, and says why when one was not.
     """
     before = _layer_count(bundle_id)
     if method == "subject":
-        pick = '  select subject src with smart refine\n' if smart_refine else \
-               '  select subject src without smart refine\n'
+        pick = ('  select subject src with smart refine\n' if smart_refine
+                else '  select subject src without smart refine\n')
     else:
         pick = ('  select color range src color {%d, %d, %d} range %d\n'
                 % (colour[0], colour[1], colour[2], int(tolerance)))
         if method == "background":
             pick += '  invert selection\n'
+
+    probe = ('set d to front document\n'
+             'tell d\n'
+             '  deselect\n'
+             '  set src to layer id "%s"\n'
+             '%s'
+             '  delay 0.3\n'
+             '  set b to selection bounds\n'
+             '  if b is missing value then return "none"\n'
+             '  return ((item 1 of b) as text) & "," & ((item 2 of b) as text)'
+             ' & "," & ((item 3 of b) as text) & "," & ((item 4 of b) as text)'
+             ' & "," & (width of d as text) & "," & (height of d as text)\n'
+             'end tell' % (_escape(layer_id), pick))
+    caught = run(_tell(bundle_id, probe))
+    if caught == "none":
+        return None, "nothing matched", before, before
+    try:
+        x0, y0, x1, y1, dw, dh = [float(v) for v in caught.split(",")]
+    except ValueError:
+        return None, "the selection could not be read", before, before
+    if x0 <= 0 and y0 <= 0 and x1 >= dw and y1 >= dh:
+        return (None, "matched nothing — Pixelmator answers that by "
+                "selecting the whole canvas", before, before)
+
     body = ('set d to front document\n'
             'tell d\n'
             '  set src to layer id "%s"\n'
-            '%s'
-            '  delay 0.3\n'
             '  set shp to convert selection into shape\n'
             '  delay 0.3\n'
             '  set shapeName to name of shp\n'
@@ -143,17 +168,16 @@ def convert_pixels(bundle_id, layer_id, name, method,
             '  delay 0.3\n'
             '  set name of g to "%s"\n'
             # The reference to src died when the layer moved into the group,
-            # but its id did not: ids survive the move, names do not even
-            # identify it — this document holds sixteen layers called
-            # "Shape", and addressing by name converted the same one over
-            # and over while the rest looked like they had been ignored.
+            # but its id did not. Names do not even identify a layer here:
+            # this document holds sixteen called "Shape".
             '  set inner to layer id "%s" of g\n'
             '  set visible of inner to false\n'
             '  set locked of inner to true\n'
+            '  deselect\n'
             'end tell\n'
             'return shapeName'
-            % (_escape(layer_id), pick, _escape("%s (shaped)" % name),
+            % (_escape(layer_id), _escape("%s (shaped)" % name),
                _escape(layer_id)))
     shape_name = run(_tell(bundle_id, body))
     after = _layer_count(bundle_id)
-    return shape_name, before, after
+    return shape_name, None, before, after
