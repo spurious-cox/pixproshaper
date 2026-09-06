@@ -210,7 +210,6 @@ def convert_pixels(bundle_id, layer_id, name, method,
             # this document holds sixteen called "Shape".
             '  set inner to layer id "%s" of g\n'
             '  set visible of inner to false\n'
-            '  set locked of inner to true\n'
             '  deselect\n'
             '  return (name of g) & tab & ((count of layers of g) as text)\n'
             'end tell'

@@ -5,8 +5,8 @@ Pixelmator turns pixels into a shape, scripted or not, because that would
 be auto-tracing. What it can do is make a SELECTION from the layer's own
 content and convert that, which is the same thing by another road — so a
 pixel layer is traced from its own outline, or from a colour, and the
-resulting shape is grouped with the original, which is hidden and locked
-as the source it now is.
+resulting shape is grouped with the original, which is hidden as the
+source it now is.
 
 Everything else — shapes, groups, adjustments, effects, video — is
 reported and left alone.
@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -82,8 +82,8 @@ INFO_BODY = (
 
     "WHAT YOU GET\n"
     "The new shape and the original go into a group named for the original, "
-    "and the original is hidden and locked. It is the source now, not "
-    "something to edit by accident — unlock it if you disagree.\n\n"
+    "and the original is hidden. It is out of the way, not out of reach — "
+    "nothing is locked.\n\n"
 
     "ANYTHING ELSE is left alone and said so: a shape is already a shape, "
     "and there is no route from a group, adjustment, effect or video layer "
@@ -432,8 +432,7 @@ class Controller(NSObject):
                                        % (name, refusal))
                         else:
                             self.note_("%-30s traced into group “%s” — "
-                                       "original hidden and locked"
-                                       % (name, group))
+                                       "original hidden" % (name, group))
                             done += 1
                 except bridge.PixmatorError as exc:
                     self.note_("%-30s FAILED: %s" % (name, exc))
