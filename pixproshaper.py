@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.1.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -172,6 +172,11 @@ class Controller(NSObject):
         w.setTitle_("PixProShaper")
         w.setMinSize_(NSMakeSize(640, 460))
         w.setReleasedWhenClosed_(False)
+        # Cocoa remembers the frame under this name and restores it on the
+        # next launch, size as well as position — so the window comes back
+        # where it was left instead of centred over whatever is underneath.
+        # It also keeps it on screen if the display arrangement changes.
+        w.setFrameAutosaveName_("PixProShaperWindow")
         root = Flipped.alloc().initWithFrame_(NSMakeRect(0, 0, WIN_W, WIN_H))
         w.setContentView_(root)
 
@@ -474,7 +479,10 @@ class Controller(NSObject):
         NSApp.terminate_(None)
 
     def show(self):
-        self.window.center()
+        # Only centre it the first time, when there is no remembered frame
+        # to restore.
+        if not self.window.setFrameUsingName_("PixProShaperWindow"):
+            self.window.center()
         self.window.makeKeyAndOrderFront_(None)
         NSApp.activateIgnoringOtherApps_(True)
         self.reread_(None)
