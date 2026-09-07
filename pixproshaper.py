@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.4.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime

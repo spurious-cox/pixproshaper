@@ -1,6 +1,7 @@
 """py2app build for PixProShaper.app
 
-    ./venv/bin/python make_icon.py
+    ~/My_Applications/KBD/venv/bin/python ~/bin/pixpro_make_icon.py \
+        PIxProShaperIcon.png --name PixProShaper
     ./venv/bin/python setup.py py2app
 
 Not LSUIElement: unlike the PixPro one-shot applets this is a window you work
@@ -28,6 +29,10 @@ setup(
     app=APP,
     options={"py2app": {
         "argv_emulation": False,
+        # Built from PIxProShaperIcon.png by ~/bin/pixpro_make_icon.py, which
+        # places the artwork on Apple's 824-in-1024 grid so it sits the same
+        # size as every other icon in the Dock.
+        "iconfile": "PixProShaper.icns",
         # py2app strips bundled binaries by default, and strip mangles some
         # of them badly enough that codesign refuses them outright:
         # "main executable failed strict validation" on liblzma, which could
@@ -54,11 +59,12 @@ setup(
             "NSHumanReadableCopyright":
                 "Copyright © 2026 Tim McCoy. All rights reserved.",
             "CFBundleGetInfoString":
-                "PixProShaper — fit text inside a shape in Pixelmator Pro.",
+                "PixProShaper — turn selected layers into shapes in "
+                "Pixelmator Pro.",
             # It drives Pixelmator Pro over Apple events, so it must say so.
             "NSAppleEventsUsageDescription":
-                "PixProShaper reads the selected shape from Pixelmator Pro "
-                "and adds the fitted text layer back to your document.",
+                "PixProShaper reads the selected layers from Pixelmator Pro "
+                "and adds the traced shapes back to your document.",
         },
     }},
     setup_requires=["py2app"],
