@@ -14,10 +14,12 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.4.1"
+APP_VERSION = "2.5.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
+
+import pixpro_updates
 import os
 import sys
 import traceback
@@ -275,7 +277,8 @@ class Controller(NSObject):
 
         # --- the buttons
         for title, action, x, wide in (("Exit", "quit:", 14, 80),
-                                       ("Info", "showInfo:", 102, 80)):
+                                       ("Info", "showInfo:", 102, 80),
+                                       ("Updates\u2026", "checkForUpdates:", 190, 96)):
             b = FirstMouseButton.alloc().initWithFrame_(
                 NSMakeRect(x, WIN_H - 44, wide, 30))
             b.setTitle_(title)
@@ -452,6 +455,12 @@ class Controller(NSObject):
             self.busy = False
             self.convert_button.setEnabled_(True)
             self.reread_(None)
+
+    def checkForUpdates_(self, sender):
+        """Ask GitHub what the newest release is. Reports only — see the module."""
+        pixpro_updates.check_for_updates(
+            "PixProShaper", "pixproshaper", APP_VERSION,
+            NSApp.applicationIconImage())
 
     def showInfo_(self, sender):
         alert = NSAlert.alloc().init()
