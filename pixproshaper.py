@@ -4,7 +4,7 @@ A text layer converts directly. An image layer cannot: nothing in
 Pixelmator turns pixels into a shape, scripted or not, because that would
 be auto-tracing. What it can do is make a SELECTION from the layer's own
 content and convert that, which is the same thing by another road — so a
-pixel layer is traced from its own outline, or from a colour, and the
+pixel layer is traced from its own outline, or from a color, and the
 resulting shape is grouped with the original, which is hidden as the
 source it now is.
 
@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.4.1"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shaperbridge as bridge
 
 WIN_W, WIN_H = 700, 540
-METHODS = (("Outline", "outline"), ("Colour", "colour"))
+METHODS = (("Outline", "outline"), ("Color", "color"))
 SETTINGS_KEY = "PixProShaperSettings"
 LOG_PATH = os.path.expanduser("~/Library/Logs/PixProShaper.log")
 
@@ -57,20 +57,20 @@ INFO_BODY = (
     "The layer's own outline: its alpha, exactly as drawn, holes and all. "
     "Nothing is guessed at.\n"
     "    Best on: artwork on transparency, which is most artwork.\n"
-    "    Works on black artwork, where Colour cannot.\n"
-    "    Nothing to set — the colour well and tolerance are ignored.\n\n"
+    "    Works on black artwork, where Color cannot.\n"
+    "    Nothing to set — the color well and tolerance are ignored.\n\n"
 
     "COLOUR\n"
-    "Selects everything matching the colour well, within the tolerance.\n"
-    "    Best on: flat colour on a filled, opaque ground.\n"
+    "Selects everything matching the color well, within the tolerance.\n"
+    "    Best on: flat color on a filled, opaque ground.\n"
     "    Tolerance: 1 is an exact match, 100 takes in almost anything. It "
-    "starts at 50. Exact matches are rarer than they sound — a colour "
+    "starts at 50. Exact matches are rarer than they sound — a color "
     "picked off the artwork can still miss it at 1 and catch it at 50, "
     "because antialiasing means almost no two pixels are identical.\n"
     "    Nothing matched means the tolerance is too low, not that the "
-    "colour is wrong.\n"
+    "color is wrong.\n"
     "    BLACK is checked for first. A transparent pixel is red 0, green "
-    "0, blue 0 — the same as black — and colour matching ignores "
+    "0, blue 0 — the same as black — and color matching ignores "
     "transparency, so asking for black selects the WHOLE CANVAS and the "
     "shape comes back as a big black box. Each layer is tested before it "
     "is traced, and one that holds nothing but black is refused with a "
@@ -130,7 +130,7 @@ class Flipped(NSView):
         return True
 
 
-def label(text, frame, size=12, weight="reg", colour=None, align=None):
+def label(text, frame, size=12, weight="reg", color=None, align=None):
     f = PassthroughLabel.alloc().initWithFrame_(frame)
     f.setStringValue_(text)
     f.setEditable_(False)
@@ -139,14 +139,14 @@ def label(text, frame, size=12, weight="reg", colour=None, align=None):
     f.setDrawsBackground_(False)
     f.setFont_(NSFont.boldSystemFontOfSize_(size) if weight == "bold"
                else NSFont.systemFontOfSize_(size))
-    if colour is not None:
-        f.setTextColor_(colour)
+    if color is not None:
+        f.setTextColor_(color)
     if align is not None:
         f.setAlignment_(align)
     return f
 
 
-def grey(v):
+def gray(v):
     return NSColor.colorWithCalibratedWhite_alpha_(v, 1.0)
 
 
@@ -174,7 +174,7 @@ class Controller(NSObject):
         w.setReleasedWhenClosed_(False)
         # Cocoa remembers the frame under this name and restores it on the
         # next launch, size as well as position — so the window comes back
-        # where it was left instead of centred over whatever is underneath.
+        # where it was left instead of centered over whatever is underneath.
         # It also keeps it on screen if the display arrangement changes.
         w.setFrameAutosaveName_("PixProShaperWindow")
         root = Flipped.alloc().initWithFrame_(NSMakeRect(0, 0, WIN_W, WIN_H))
@@ -182,11 +182,11 @@ class Controller(NSObject):
 
         # --- the heading: version, name, copyright
         root.addSubview_(label("v" + APP_VERSION, NSMakeRect(14, 12, 90, 18),
-                               11.5, "reg", grey(0.45)))
+                               11.5, "reg", gray(0.45)))
         root.addSubview_(label("PixProShaper", NSMakeRect(0, 9, WIN_W, 22), 15,
                                "bold", None, NSCenterTextAlignment))
         c = label(COPYRIGHT, NSMakeRect(WIN_W - 190, 12, 176, 18), 11.5, "reg",
-                  grey(0.45), NSRightTextAlignment)
+                  gray(0.45), NSRightTextAlignment)
         c.setAutoresizingMask_(1)                  # pinned to the right edge
         root.addSubview_(c)
 
@@ -235,11 +235,11 @@ class Controller(NSObject):
         self.method.setAction_("methodChanged:")
         root.addSubview_(self.method)
 
-        root.addSubview_(label("Colour", NSMakeRect(14, 250, 60, 18)))
+        root.addSubview_(label("Color", NSMakeRect(14, 250, 60, 18)))
         self.well = NSColorWell.alloc().initWithFrame_(
             NSMakeRect(70, 244, 52, 26))
         self.well.setColor_(NSColor.whiteColor())
-        # A well that takes first responder opens the system colour picker
+        # A well that takes first responder opens the system color picker
         # by itself, which is how the picker ends up in front at launch.
         self.well.setRefusesFirstResponder_(True)
         root.addSubview_(self.well)
@@ -254,7 +254,7 @@ class Controller(NSObject):
         self.tolerance.setAction_("toleranceChanged:")
         root.addSubview_(self.tolerance)
         self.tolerance_read = label("", NSMakeRect(420, 250, 60, 18), 11.5,
-                                    "reg", grey(0.35))
+                                    "reg", gray(0.35))
         root.addSubview_(self.tolerance_read)
 
         # --- results
@@ -295,7 +295,7 @@ class Controller(NSObject):
         root.addSubview_(self.convert_button)
 
         self.status = label("", NSMakeRect(198, WIN_H - 38, WIN_W - 380, 18),
-                            11.5, "reg", grey(0.3))
+                            11.5, "reg", gray(0.3))
         self.status.setAutoresizingMask_(8 | NSViewWidthSizable)
         root.addSubview_(self.status)
 
@@ -323,12 +323,12 @@ class Controller(NSObject):
     def chosen_method(self):
         return METHODS[self.method.selectedSegment()][1]
 
-    def colour_channels(self):
-        """The well's colour, in the 0-65535 AppleScript expects.
+    def color_channels(self):
+        """The well's color, in the 0-65535 AppleScript expects.
 
-        Pixelmator's colour channels are NOT 0-255. Passing 255 arrives as
+        Pixelmator's color channels are NOT 0-255. Passing 255 arrives as
         255 out of 65535 — very nearly black — which has bitten every app
-        here that ever set a colour.
+        here that ever set a color.
         """
         c = self.well.color().colorUsingColorSpaceName_("NSCalibratedRGBColorSpace")
         if c is None:
@@ -345,9 +345,9 @@ class Controller(NSObject):
     # -------------------------------------------------------------- actions
     def methodChanged_(self, sender):
         method = self.chosen_method()
-        by_colour = method == "colour"
-        self.well.setEnabled_(by_colour)
-        self.tolerance.setEnabled_(by_colour)
+        by_color = method == "color"
+        self.well.setEnabled_(by_color)
+        self.tolerance.setEnabled_(by_color)
         self.save_settings()
 
     def toleranceChanged_(self, sender):
@@ -406,7 +406,7 @@ class Controller(NSObject):
 
     def _work_(self, ignored):
         method = self.chosen_method()
-        colour = self.colour_channels()
+        color = self.color_channels()
         tolerance = int(self.tolerance.doubleValue())
         done = 0
         try:
@@ -425,7 +425,7 @@ class Controller(NSObject):
                         done += 1
                     else:
                         group, refusal = bridge.convert_pixels(
-                            self.bundle, r["id"], name, method, colour,
+                            self.bundle, r["id"], name, method, color,
                             tolerance)
                         if refusal:
                             self.note_("%-30s not traced — %s"
@@ -468,7 +468,7 @@ class Controller(NSObject):
         NSApp.terminate_(None)
 
     def show(self):
-        # Only centre it the first time, when there is no remembered frame
+        # Only center it the first time, when there is no remembered frame
         # to restore.
         if not self.window.setFrameUsingName_("PixProShaperWindow"):
             self.window.center()

@@ -111,7 +111,7 @@ def layer_is_black(bundle_id, layer_id):
 
     The inversion is what makes it work. Selecting black directly always
     returns the whole canvas, because a transparent pixel is red 0, green
-    0, blue 0 and colour matching ignores transparency — so black artwork
+    0, blue 0 and color matching ignores transparency — so black artwork
     and empty space give the same answer. Inverting distinguishes them.
 
     Verified against a layer known to hold no white: asking for white left
@@ -134,13 +134,13 @@ def layer_is_black(bundle_id, layer_id):
 
 
 def convert_pixels(bundle_id, layer_id, name, method,
-                   colour=(65535, 65535, 65535), tolerance=50):
+                   color=(65535, 65535, 65535), tolerance=50):
     """An image layer gains a shape traced from its own content.
 
-    method is "outline" — the layer's own alpha — or "colour", everything
-    matching the given colour within the tolerance.
+    method is "outline" — the layer's own alpha — or "color", everything
+    matching the given color within the tolerance.
 
-    The pick is checked before anything is converted. A colour that matches
+    The pick is checked before anything is converted. A color that matches
     NOTHING does not leave an empty selection — Pixelmator selects the
     ENTIRE CANVAS. Measured: after asking for pure black on a layer holding
     none, the selection bounds came back as the whole document. Converting
@@ -159,19 +159,19 @@ def convert_pixels(bundle_id, layer_id, name, method,
     """
     if method == "outline":
         # The layer's own alpha, which is what "trace this artwork" means.
-        # Colour matching cannot do it: a transparent pixel is RGB 0,0,0, so
+        # Color matching cannot do it: a transparent pixel is RGB 0,0,0, so
         # asking for black selects the whole canvas. load selection follows
         # the outline itself, holes and all.
         pick = '  load selection src\n'
     else:
-        # Black artwork is hopeless by colour and there is no tolerance that
+        # Black artwork is hopeless by color and there is no tolerance that
         # rescues it, so it is caught here rather than after the whole
         # canvas has been traced into a black rectangle.
         if layer_is_black(bundle_id, layer_id):
-            return (None, "the artwork is black — colour matching cannot "
+            return (None, "the artwork is black — color matching cannot "
                     "tell black from transparency; use Outline")
         pick = ('  select color range src color {%d, %d, %d} range %d\n'
-                % (colour[0], colour[1], colour[2], int(tolerance)))
+                % (color[0], color[1], color[2], int(tolerance)))
 
     probe = ('set d to front document\n'
              'tell d\n'
@@ -194,7 +194,7 @@ def convert_pixels(bundle_id, layer_id, name, method,
         return None, "the selection could not be read"
     if x0 <= 0 and y0 <= 0 and x1 >= dw and y1 >= dh:
         return (None, "the selection covered the whole canvas — with "
-                "Colour that means black on transparency; use Outline")
+                "Color that means black on transparency; use Outline")
 
     body = ('set d to front document\n'
             'tell d\n'
