@@ -13,6 +13,8 @@ or install it with Homebrew:
 brew install --cask spurious-cox/tap/pixproshaper
 ```
 
+*2.5.1 is an icon change only — nothing else about the app has changed.*
+
 Requires Pixelmator Pro. Both the 3.x build and the Creator Studio build work;
 the app binds to whichever one is in front or has a document open.
 
