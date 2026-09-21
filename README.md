@@ -1,4 +1,4 @@
-# PixProShaper
+# PixProShaper 2.5.1
 
 Turns selected Pixelmator Pro layers into shapes. A text layer converts
 directly; a pixel layer is traced from its own outline or from a color,
@@ -12,9 +12,6 @@ or install it with Homebrew:
 ```
 brew install --cask spurious-cox/tap/pixproshaper
 ```
-
-*2.5.1 is an icon change only — nothing else about the app has changed.*
-
 Requires Pixelmator Pro. Both the 3.x build and the Creator Studio build work;
 the app binds to whichever one is in front or has a document open.
 
