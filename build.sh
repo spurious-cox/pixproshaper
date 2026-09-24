@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Build, sign and install PixProShaper.app — v1.0.0
+# Build, sign and install PixProShaper.app — v1.1.0
 #
 # Signing follows the same rules the other apps here learned the hard way:
 #
@@ -34,6 +34,11 @@ sleep 1
 echo "==> building"
 rm -rf build dist
 ./venv/bin/python setup.py py2app >/dev/null
+
+# macOS 26+ draws an app that has only an .icns shrunk onto a plain plate.
+# The Icon Composer document compiles into Assets.car, which macOS 26+ uses
+# instead; the .icns from setup.py is still what macOS 13-25 show.
+~/bin/glass_icon dist/PixProShaper.app icon/AppIcon.icon
 
 # py2app can leave a bundled dylib with rubbish appended past the end of the
 # Mach-O — same header, same load commands, ~139KB longer than the original —

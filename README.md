@@ -1,4 +1,4 @@
-# PixProShaper 2.5.1
+# PixProShaper 2.5.2
 
 Turns selected Pixelmator Pro layers into shapes. A text layer converts
 directly; a pixel layer is traced from its own outline or from a color,
