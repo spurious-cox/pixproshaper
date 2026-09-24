@@ -71,7 +71,11 @@ codesign --force --timestamp --options runtime \
     --entitlements pixproshaper.entitlements --sign "$SIGN_ID" dist/PixProShaper.app
 codesign --verify --deep --strict dist/PixProShaper.app
 
-if [[ "$1" == "--install" ]]; then
+# Installing is the DEFAULT. It used to need --install, and the failure
+# that caused is silent: the build succeeds, /Applications keeps the old
+# version, and everything downstream looks like it worked. Pass --no-install
+# to build without touching /Applications.
+if [[ "$1" != "--no-install" ]]; then
     echo "==> installing to /Applications"
     rm -rf /Applications/PixProShaper.app
     cp -R dist/PixProShaper.app /Applications/
