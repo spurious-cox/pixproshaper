@@ -17,7 +17,9 @@ the app binds to whichever one is in front or has a document open.
 
 ## Using it
 
-1. Select the layers to convert in Pixelmator Pro.
+1. Select the layers to convert in Pixelmator Pro. Only layers at the **top
+   level** of the Layers list are read; one inside a group is not seen, so
+   drag it out first.
 2. Run PixProShaper and choose how a pixel layer should be traced — by its
    **outline**, or by **color**.
 3. The resulting shape is grouped with the original, which is hidden as the
@@ -39,10 +41,8 @@ selection ignores alpha.
 ./build.sh
 ```
 
-Signing uses a Developer ID certificate selected by SHA-1 hash and timestamped,
-which is what keeps macOS's Automation grant alive across rebuilds.
-`~/My_Applications/_signing/pixpro_release.sh all <App>` signs and notarizes;
-`pixpro_publish.sh <App>` wraps it in the DMG and updates the cask.
+The app is signed with a timestamped Developer ID certificate, which keeps
+macOS's Automation grant alive across rebuilds, then notarized and stapled.
 
 ## Problems or suggestions
 
