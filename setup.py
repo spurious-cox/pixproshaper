@@ -27,6 +27,7 @@ VERSION = app_version()
 setup(
     name="PixProShaper",
     app=APP,
+    data_files=["PixProShaper-README.txt"],
     options={"py2app": {
         "argv_emulation": False,
         # Built from PIxProShaperIcon.png by ~/bin/pixpro_make_icon.py, which
