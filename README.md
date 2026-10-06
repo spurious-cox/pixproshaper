@@ -1,4 +1,4 @@
-# PixProShaper 2.5.2
+# PixProShaper 2.6.0
 
 Turns selected Pixelmator Pro layers into shapes. A text layer converts
 directly; a pixel layer is traced from its own outline or from a color,
@@ -43,6 +43,16 @@ selection ignores alpha.
 
 The app is signed with a timestamped Developer ID certificate, which keeps
 macOS's Automation grant alive across rebuilds, then notarized and stapled.
+
+## Updates
+
+When it opens, PixProShaper asks GitHub whether a newer release exists — at most
+once a day, giving up after three seconds — and says nothing if you are up to
+date or offline. If there is a newer one, it shows in the status line:
+
+    Update available: X.Y.Z  —  brew upgrade --cask pixproshaper
+
+It only ever reports: nothing is downloaded and nothing replaces itself.
 
 ## Problems or suggestions
 

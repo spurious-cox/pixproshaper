@@ -14,7 +14,7 @@ reported and left alone.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
-APP_VERSION = "2.5.2"
+APP_VERSION = "2.6.0"
 COPYRIGHT = "© 2026 Tim McCoy"
 
 import datetime
@@ -305,6 +305,12 @@ class Controller(NSObject):
         self.window = w
         self.methodChanged_(None)
         self.toleranceChanged_(None)
+        # The same automatic check every PixPro app makes when it opens: once a
+        # day at most, silent unless there is a newer release.
+        pixpro_updates.announce(
+            "pixproshaper", APP_VERSION,
+            lambda line: self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                b"say:", line, False))
 
     # -------------------------------------------------------------- helpers
     def say_(self, text):
