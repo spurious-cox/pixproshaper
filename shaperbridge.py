@@ -10,6 +10,35 @@ Created by: Claude (Anthropic) for Tim McCoy
 
 import subprocess
 
+_TOP_JS = (
+    'ObjC.import("CoreGraphics");ObjC.import("AppKit");'
+    'function top(o){var l=ObjC.deepUnwrap(ObjC.castRefToObject('
+    '$.CGWindowListCopyWindowInfo(o,0)));'
+    'for(var i=0;i<l.length;i++){var w=l[i];'
+    'if(w.kCGWindowOwnerName=="Pixelmator Pro"&&w.kCGWindowLayer==0'
+    '&&w.kCGWindowBounds.Height>100)return w.kCGWindowOwnerPID;}return 0;}'
+    'var p=top(17);if(!p)p=top(16);'
+    'var a=p?$.NSRunningApplication.runningApplicationWithProcessIdentifier(p):null;'
+    'a?(p+"\\t"+ObjC.unwrap(a.bundleIdentifier)+"\\t"+ObjC.unwrap(a.bundleURL.path)):""')
+
+
+def top_pixelmator():
+    """(pid, bundle id, bundle path) of the Pixelmator Pro build whose window
+    is topmost, or None. This is the build the person is looking at: the
+    window list is ordered front to back, so it stays right when this app was
+    started from Stache, Flache or the Dock and is not itself frontmost.
+    Visible windows are tried first, then windows on other Spaces. Needs no
+    Screen Recording permission (owner, pid and size only)."""
+    try:
+        out = subprocess.run(["/usr/bin/osascript", "-l", "JavaScript",
+                              "-e", _TOP_JS], capture_output=True,
+                             text=True, timeout=8).stdout.strip()
+    except Exception:
+        return None
+    parts = out.split("\t")
+    return (int(parts[0]), parts[1], parts[2]) if len(parts) == 3 else None
+
+
 # 3.8 and the Creator Studio rebrand are different apps with different
 # document lists. Whichever has a front document is the one to talk to.
 BUNDLES = ("com.pixelmatorteam.pixelmator.x", "com.apple.pixelmator")
@@ -36,13 +65,18 @@ def run(script):
 
 
 def host():
-    """The Pixelmator holding a document, or None.
+    """The Pixelmator holding a document, or None; the topmost build is
+    asked first.
 
     Asked rather than assumed: with both builds installed, guessing wrong
     means every command lands in an app with no document open and fails
     with "Can't get document 1".
     """
-    for bundle in BUNDLES:
+    # The build with the topmost window is asked first: it is the one on screen.
+    top = top_pixelmator()
+    order = ([top[1]] if top and top[1] in BUNDLES else []) + \
+        [b for b in BUNDLES if not top or b != top[1]]
+    for bundle in order:
         try:
             if run(_tell(bundle, 'return (count of documents) as text')) not in ("0", ""):
                 return bundle
