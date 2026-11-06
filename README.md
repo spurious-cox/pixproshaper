@@ -58,6 +58,10 @@ It only ever reports: nothing is downloaded and nothing replaces itself.
 
 Open an issue: https://github.com/spurious-cox/pixproshaper/issues
 
+## Keep all the PixPro apps in one place
+
+[Flache](https://github.com/spurious-cox/flache) is a floating dock for the apps you choose, shown and hidden with a hotkey. Make a PixPro panel in it and every PixPro app is one click away while you work in Pixelmator Pro.
+
 ## Trademarks
 
 Pixelmator and Pixelmator Pro are trademarks of the Pixelmator Team Ltd. PixPro apps are independent and are not affiliated with, endorsed by or sponsored by Pixelmator or Apple.
