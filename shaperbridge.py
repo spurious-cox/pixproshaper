@@ -8,6 +8,7 @@ separate document lists — so the name is never used.
 Created by: Claude (Anthropic) for Tim McCoy
 """
 
+import json
 import subprocess
 
 _TOP_JS = (
@@ -37,6 +38,29 @@ def top_pixelmator():
         return None
     parts = out.split("\t")
     return (int(parts[0]), parts[1], parts[2]) if len(parts) == 3 else None
+
+
+_RUNNING_JS = (
+    'ObjC.import("AppKit");var out=[],apps=$.NSWorkspace.sharedWorkspace.runningApplications;'
+    'for(var i=0;i<apps.count;i++){var b=ObjC.unwrap(apps.objectAtIndex(i).bundleIdentifier);'
+    'if(b)out.push(b);}JSON.stringify(out)')
+
+
+def running_among(ids):
+    """The bundle ids in `ids` that are running right now, in the same order.
+
+    `tell application id` LAUNCHES an app that is not running, so asking a
+    closed Pixelmator whether it has a document opens it, windowless. Only
+    builds found here are ever addressed.
+    """
+    try:
+        out = subprocess.run(["/usr/bin/osascript", "-l", "JavaScript", "-e",
+                              _RUNNING_JS], capture_output=True, text=True,
+                             timeout=8).stdout.strip()
+        running = set(json.loads(out))
+    except Exception:
+        return []
+    return [i for i in ids if i in running]
 
 
 # 3.8 and the Creator Studio rebrand are different apps with different
@@ -76,6 +100,7 @@ def host():
     top = top_pixelmator()
     order = ([top[1]] if top and top[1] in BUNDLES else []) + \
         [b for b in BUNDLES if not top or b != top[1]]
+    order = running_among(order)         # never launch a closed build
     for bundle in order:
         try:
             if run(_tell(bundle, 'return (count of documents) as text')) not in ("0", ""):
